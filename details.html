@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Media Viewer</title>
+    <style>
+        body { background: #07111f; color: white; font-family: Arial; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; width: 100%; }
+        
+        /* Media wrapper with overlay */
+        .media-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        video { width: 100%; max-height: 60vh; background: #000; display: block; }
+        img { width: 100%; max-height: 60vh; object-fit: contain; background: #000; display: block; }
+        
+        /* Filename overlay - positioned at y=60px from top */
+        .filename-overlay_dummy {
+	}
+
+        .filename-overlay {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            right: 0;
+            padding: 8px 16px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%);
+            color: #fff;
+            font-family: monospace;
+            font-size: 18px;
+            pointer-events: none;
+            word-break: break-all;
+            z-index: 9999;
+            display: block !important;
+            text-align: center;
+        }
+        .filename-overlay .label {
+            color: #60a5fa;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .filename-overlay .name {
+            color: #86efac;
+        }
+        
+        .controls { margin-top: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        button { padding: 10px 20px; background: #2a2a3e; border: 1px solid #00a8ff; color: white; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #00a8ff; }
+        .back-link { 
+            display: block; 
+            margin-top: 20px; 
+            color: #00a8ff; 
+            text-align: center; 
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .progress-container {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+        .progress-filled {
+            height: 100%;
+            background: #00a8ff;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        .time-display {
+            font-family: monospace;
+            font-size: 12px;
+            min-width: 100px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Media wrapper with overlay ONLY (no info bar) -->
+    <div class="media-wrapper">
+        <div class="filename-overlay_dummy" id="filenameOverlay">
+            <span class="label">📹 File:</span>
+            <span class="name" id="filenameDisplay">Loading...</span>
+        </div>
+        <video id="video" controls autoplay style="display:none;"></video>
+        <img id="image" alt="" style="display:none;">
+    </div>
+    
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-filled" id="progressFilled"></div>
+        </div>
+        <div class="time-display">
+            <span id="currentTime">0:00</span> / <span id="duration">0:00</span>
+        </div>
+    </div>
+    
+    <div class="controls" id="controls">
+        <button onclick="skip(-30)">-30s</button>
+        <button onclick="skip(-10)">-10s</button>
+        <button onclick="skip(-5)">-5s</button>
+        <button id="playPauseBtn" onclick="togglePlayPause()">⏸ Pause</button>
+        <button onclick="skip(5)">+5s</button>
+        <button onclick="skip(10)">+10s</button>
+        <button onclick="skip(30)">+30s</button>
+        <button onclick="toggleMute()" id="muteBtn">🔊 Mute</button>
+        <button onclick="setSpeed(0.5)">0.5x</button>
+        <button onclick="setSpeed(1)">1x</button>
+        <button onclick="setSpeed(1.5)">1.5x</button>
+        <button onclick="setSpeed(2)">2x</button>
+    </div>
+    <span class="back-link" onclick="closeTab()">✕ Close Window</span>
+</div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const filePath = urlParams.get('path');
+    
+    const video = document.getElementById('video');
+    const image = document.getElementById('image');
+    const filenameDisplay = document.getElementById('filenameDisplay');
+    const filenameOverlay = document.getElementById('filenameOverlay');
+    const progressContainer = document.getElementById('progressContainer');
+    const controls = document.getElementById('controls');
+    const progressBar = document.getElementById('progressBar');
+    const progressFilled = document.getElementById('progressFilled');
+    const currentTimeSpan = document.getElementById('currentTime');
+    const durationSpan = document.getElementById('duration');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    
+    // Function to close the tab/window
+    function closeTab() {
+        window.close();
+        // Fallback: if window.close() doesn't work (some browsers block it)
+        // try to redirect as a fallback
+        if (!window.closed) {
+            window.location.href = '/footage.html';
+        }
+    }
+    
+    function formatTime(seconds) {
+        if (isNaN(seconds)) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
+    function updateProgress() {
+        if (video.duration && !isNaN(video.duration)) {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressFilled.style.width = `${percent}%`;
+            currentTimeSpan.textContent = formatTime(video.currentTime);
+            durationSpan.textContent = formatTime(video.duration);
+        }
+    }
+    
+    function togglePlayPause() {
+        if (video.paused) {
+            video.play();
+            playPauseBtn.textContent = "⏸ Pause";
+        } else {
+            video.pause();
+            playPauseBtn.textContent = "▶ Play";
+        }
+    }
+    
+    function skip(seconds) {
+        if (video) {
+            let target = video.currentTime + seconds;
+            target = Math.max(0, Math.min(video.duration, target));
+            video.currentTime = target;
+        }
+    }
+    
+    function toggleMute() {
+        video.muted = !video.muted;
+        muteBtn.textContent = video.muted ? "🔇 Unmute" : "🔊 Mute";
+    }
+    
+    function setSpeed(rate) {
+        video.playbackRate = rate;
+        document.querySelectorAll('.controls button').forEach(btn => {
+            if (btn.textContent === rate + 'x') {
+                btn.style.background = '#00a8ff';
+            } else if (btn.textContent.match(/x$/)) {
+                btn.style.background = '#2a2a3e';
+            }
+        });
+    }
+    
+    progressBar.addEventListener('click', (e) => {
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        video.currentTime = percent * video.duration;
+    });
+    
+    video.addEventListener('timeupdate', updateProgress);
+    video.addEventListener('play', () => {
+        playPauseBtn.textContent = "⏸ Pause";
+    });
+    video.addEventListener('pause', () => {
+        playPauseBtn.textContent = "▶ Play";
+    });
+    video.addEventListener('loadedmetadata', () => {
+        durationSpan.textContent = formatTime(video.duration);
+    });
+    
+    // Helper to show filename on top of media
+    function showMedia(filePath) {
+        const fileName = decodeURIComponent(filePath).split('/').pop();
+        const ext = fileName.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext);
+        
+        // Show filename overlay at y=60px from top
+        filenameDisplay.textContent = fileName;
+        filenameOverlay.style.display = 'block !important';
+        filenameOverlay.style.textAlign = 'center';
+        filenameOverlay.style.top = '60px';
+        
+        const fileUrl = `/api/preview?path=${encodeURIComponent(filePath)}`;
+        
+        if (isImage) {
+            // Show image
+            video.style.display = 'none';
+            image.style.display = 'block';
+            image.src = fileUrl;
+            
+            // Hide video controls for images
+            progressContainer.style.display = 'none';
+            controls.style.display = 'none';
+            
+            image.onerror = function() {
+                filenameDisplay.textContent = 'Error loading image';
+            };
+        } else {
+            // Show video
+            image.style.display = 'none';
+            video.style.display = 'block';
+            video.src = fileUrl;
+            
+            // Show video controls
+            progressContainer.style.display = 'flex';
+            controls.style.display = 'flex';
+            
+            video.load();
+            video.onerror = function() {
+                filenameDisplay.textContent = 'Error loading video';
+            };
+        }
+    }
+    
+    if (filePath) {
+        showMedia(filePath);
+    } else {
+        video.style.display = 'none';
+        image.style.display = 'none';
+        filenameOverlay.style.display = 'none';
+    }
+    
+    document.addEventListener('keydown', (e) => {
+        switch(e.key) {
+            case 'ArrowLeft': e.preventDefault(); skip(-5); break;
+            case 'ArrowRight': e.preventDefault(); skip(5); break;
+            case ' ': case 'Space': e.preventDefault(); togglePlayPause(); break;
+            case 'm': case 'M': e.preventDefault(); toggleMute(); break;
+            case 'f': case 'F': e.preventDefault(); if (video.requestFullscreen) video.requestFullscreen(); break;
+            case 'Escape': 
+                e.preventDefault(); 
+                closeTab(); 
+                break;
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+[Unit]
+Description=CCTV Dashboard Footage API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/cctv-yoosamui-dashbaord/
+
+# Add 10-second delay
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/python3 /home/pi/cctv-yoosamui-dashbaord/footage_api.py
+Restart=always
+RestartSec=3
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>📹 CCTV Footage Viewer
+</title>
+    <style>
+        body { background: #07111f; color: white; font-family: Arial; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card { background: #1a1a2e; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        input, select, button { padding: 10px; margin: 5px; border-radius: 8px; border: none; }
+        input { width: 250px; background: #333; color: white; }
+        select, button { background: #00a8ff; color: white; cursor: pointer; }
+        .refresh-btn { background: #28a745; }
+        .refresh-btn:hover { background: #218838; }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .style-btn { background: #8b5cf6; }
+        .style-btn:hover { background: #7c3aed; }
+        .style-btn.active { background: #7c3aed; box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }
+        
+        .title-link {
+            color: white;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .title-link:hover {
+            color: #60a5fa;
+            text-decoration: underline;
+        }
+        
+        /* ===== STYLE 1: GRID VIEW ===== */
+        .style-grid .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 20px; 
+        }
+        .style-grid .item { 
+            background: #1a1a2e; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            cursor: pointer; 
+            transition: transform 0.2s; 
+        }
+        .style-grid .item:hover { transform: scale(1.02); }
+        .style-grid .preview { 
+            height: 180px; 
+            background: #0a0f1a; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden;
+        }
+        .style-grid .preview img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            background: #0a0f1a;
+        }
+        .style-grid .info { padding: 10px; }
+        .style-grid .name-line1 { font-size: 12px; font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .style-grid .name-line1 span { background: #00a8ff; padding: 2px 8px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+        .style-grid .name-line1 span:hover { background: #0088cc; }
+        .style-grid .name-line2 { font-size: 10px; color: #aaa; word-break: break-all; margin-bottom: 8px; }
+        .style-grid .meta { font-size: 11px; color: #888; margin-top: 5px; }
+        .style-grid .meta span { margin-right: 8px; }
+        .style-grid .badge-Image { background: #0066cc; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        .style-grid .badge-Video { background: #6600cc; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        .style-grid .video-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            font-size: 48px;
+        }
+        
+        /* ===== STYLE 2: TABLE VIEW ===== */
+        .style-table .table-wrap { overflow-x: auto; }
+        .style-table table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.92);
+            font-size: 13px;
+        }
+        .style-table .thumb-cell { width: 75px; }
+        .style-table .thumb-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 65px;
+            cursor: pointer;
+        }
+        .style-table .thumb-card:hover .thumb {
+            border-color: #00a8ff;
+            box-shadow: 0 0 10px rgba(0, 168, 255, 0.3);
+        }
+        .style-table .thumb-card:hover .thumb-icon {
+            border-color: #00a8ff;
+            box-shadow: 0 0 10px rgba(0, 168, 255, 0.3);
+        }
+        .style-table .thumb {
+            width: 65px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(30, 41, 59, 0.95);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .style-table .thumb-icon {
+            width: 65px;
+            height: 50px;
+            display: grid;
+            place-items: center;
+            border-radius: 6px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.18));
+            color: #e0f2fe;
+            font-size: 1rem;
+            font-weight: 700;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .style-table .thumb-caption {
+            font-size: 0.6rem;
+            color: #dbeafe;
+            text-align: center;
+            word-break: break-word;
+            max-width: 65px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .style-table th,
+        .style-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+            text-align: left;
+            vertical-align: middle;
+            font-size: 0.85rem;
+        }
+        .style-table th {
+            color: #bae6fd;
+            background: rgba(30, 41, 59, 0.95);
+            font-size: 0.8rem;
+        }
+        .style-table .muted { color: #bfdbfe; }
+        .style-table .filename-cell {
+            font-size: 0.75rem;
+            word-break: break-word;
+            max-width: 300px;
+            min-width: 200px;
+        }
+        .style-table .filename-cell .fname-part1 {
+            font-weight: bold;
+            color: #bae6fd;
+            display: block;
+        }
+        .style-table .filename-cell .fname-part1 .copy-btn {
+            background: #00a8ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.6rem;
+            cursor: pointer;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .style-table .filename-cell .fname-part1 .copy-btn:hover {
+            background: #0088cc;
+        }
+        .style-table .filename-cell .fname-part2 {
+            color: #94a3b8;
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 2px;
+        }
+        
+        /* ===== COMMON PAGINATION ===== */
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin: 20px 0;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .pagination button {
+            padding: 8px 16px;
+            background: #00a8ff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+        }
+        .pagination button:hover { background: #0088cc; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination .page-info {
+            padding: 8px 16px;
+            background: #333;
+            border-radius: 6px;
+            color: #fff;
+        }
+        
+        /* Common */
+        .stats { padding: 10px; background: #1a1a2e; border-radius: 8px; margin-bottom: 20px; }
+        .loading { text-align: center; padding: 40px; }
+        .button-group { 
+            display: flex; 
+            gap: 10px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        .button-group .spacer {
+            flex: 1;
+        }
+        
+        /* Hide/show styles */
+        .style-grid { display: none; }
+        .style-table { display: none; }
+        .style-grid.active { display: block; }
+        .style-table.active { display: block; }
+        
+        /* Style buttons inline */
+        .style-buttons {
+            display: flex;
+            gap: 5px;
+            margin-left: 5px;
+        }
+        .style-buttons button {
+            padding: 10px 14px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1><a href="/" class="title-link">📹 CCTV Footage Viewer</a></h1>
+        <p>Powerful search syntax to find exactly what you're looking for. </p?
+    </div>
+    <div class="card">
+        <div class="button-group">
+            <input type="text" id="query" placeholder="Search by camera, date (YYYY-MM-DD), time (HH:MM), or 'today'..." value="today">
+            <select id="kind">
+                <option value="" selected>All</option>
+                <option value="Image">Images only</option>
+                <option value="Video">Videos only</option>
+            </select>
+            <select id="order" onchange="search()">
+                <option value="desc" selected>Newest first</option>
+                <option value="asc">Oldest first</option>
+            </select>
+            <button onclick="search()">🔍 Search</button>
+            <button onclick="refresh()" class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+            <span class="spacer"></span>
+            <div class="style-buttons">
+                <button onclick="setStyle('grid')" id="styleGridBtn" class="style-btn active">🖼️ Grid</button>
+                <button onclick="setStyle('table')" id="styleTableBtn" class="style-btn">📋 Table</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Bar -->
+    <div id="stats" class="stats"></div>
+    
+    <!-- Content -->
+    <div id="content">
+        <div class="style-grid active" id="gridView">
+            <div id="gridTopPagination" class="pagination"></div>
+            <div id="gridContent"></div>
+            <div id="gridBottomPagination" class="pagination"></div>
+        </div>
+        <div class="style-table" id="tableView">
+            <div id="tableTopPagination" class="pagination"></div>
+            <div id="tableContent"></div>
+            <div id="tableBottomPagination" class="pagination"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1, totalPages = 1;
+    let currentQuery = '';
+    let currentKind = '';
+    let currentOrder = 'desc';
+    let isLoading = false;
+    let currentStyle = 'grid';
+    let currentData = null;
+    
+    function setStyle(style) {
+        currentStyle = style;
+        document.getElementById('gridView').classList.toggle('active', style === 'grid');
+        document.getElementById('tableView').classList.toggle('active', style === 'table');
+        
+        document.getElementById('styleGridBtn').classList.toggle('active', style === 'grid');
+        document.getElementById('styleTableBtn').classList.toggle('active', style === 'table');
+        
+        if (currentData) {
+            if (style === 'grid') {
+                displayGrid(currentData);
+            } else {
+                displayTable(currentData);
+            }
+        }
+    }
+    
+    async function search() { 
+        currentPage = 1; 
+        await load(); 
+    }
+    
+    // Updated refresh function - rescans storage and reloads data
+    async function refresh() {
+        if (isLoading) return;
+        isLoading = true;
+        
+        const refreshBtn = document.getElementById('refreshBtn');
+        const originalText = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '🔄 Scanning...';
+        refreshBtn.disabled = true;
+        
+        try {
+            // First, tell the server to rescan the storage folder
+            const rescanResponse = await fetch('/api/rescan');
+            const rescanData = await rescanResponse.json();
+            console.log('Rescan result:', rescanData);
+            
+            // Then reload the current search
+            currentPage = 1;
+            await load();
+            window.scrollTo(0, 0);
+            
+            refreshBtn.innerHTML = '✅ Refreshed!';
+            setTimeout(() => {
+                refreshBtn.innerHTML = originalText;
+                refreshBtn.disabled = false;
+                isLoading = false;
+            }, 1500);
+        } catch (error) {
+            console.error('Refresh failed:', error);
+            refreshBtn.innerHTML = '❌ Failed';
+            setTimeout(() => {
+                refreshBtn.innerHTML = originalText;
+                refreshBtn.disabled = false;
+                isLoading = false;
+            }, 2000);
+        }
+    }
+    
+    async function load() {
+        currentQuery = document.getElementById('query').value;
+        currentKind = document.getElementById('kind').value;
+        currentOrder = document.getElementById('order').value;
+
+        document.getElementById('gridContent').innerHTML = '<div class="card loading">Loading footage...</div>';
+        document.getElementById('tableContent').innerHTML = '<div class="card loading">Loading footage...</div>';
+
+        try {
+            let url = `/api/footage?query=${encodeURIComponent(currentQuery)}&page=${currentPage}`;
+            if (currentKind) url += `&kind=${currentKind}`;
+            if (currentOrder) url += `&order=${currentOrder}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            currentData = data;
+            totalPages = data.total_pages;
+            
+            if (currentStyle === 'grid') {
+                displayGrid(data);
+            } else {
+                displayTable(data);
+            }
+        } catch(e) { 
+            document.getElementById('gridContent').innerHTML = `<div class="card">Error: ${e.message}</div>`;
+            document.getElementById('tableContent').innerHTML = `<div class="card">Error: ${e.message}</div>`;
+        }
+    }
+    
+    // ========== PAGINATION RENDERER (COMMON) ==========
+    function renderPagination(containerId, currentPage, totalPages, goToFunction) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (totalPages <= 1) { container.innerHTML = ''; return; }
+        
+        let html = '';
+        if (currentPage > 1) {
+            html += `<button onclick="${goToFunction}(${currentPage - 1})">◀ Previous</button>`;
+        } else {
+            html += `<button disabled>◀ Previous</button>`;
+        }
+        html += `<span class="page-info">Page ${currentPage} of ${totalPages}</span>`;
+        if (currentPage < totalPages) {
+            html += `<button onclick="${goToFunction}(${currentPage + 1})">Next ▶</button>`;
+        } else {
+            html += `<button disabled>Next ▶</button>`;
+        }
+        container.innerHTML = html;
+    }
+    
+    // ========== GRID VIEW ==========
+    function displayGrid(data) {
+        const items = data.items || [];
+        
+        if (!items.length) { 
+            document.getElementById('gridContent').innerHTML = '<div class="card">No results found</div>';
+            document.getElementById('stats').innerHTML = `Found 0 items`;
+            renderPagination('gridTopPagination', data.page, totalPages, 'goToGrid');
+            renderPagination('gridBottomPagination', data.page, totalPages, 'goToGrid');
+            return; 
+        }
+        
+        document.getElementById('stats').innerHTML = `📊 Found ${data.total_filtered} items (showing ${items.length}) | Camera: ${data.camera_filter || 'All'} | Type: ${data.kind_filter || 'All'}`;
+        
+        renderPagination('gridTopPagination', data.page, totalPages, 'goToGrid');
+        renderPagination('gridBottomPagination', data.page, totalPages, 'goToGrid');
+        
+        let html = `<div class="grid">`;
+        
+        items.forEach(item => {
+            const previewUrl = `/api/preview?path=${encodeURIComponent(item.path)}`;
+            const openUrl = `/details.html?path=${encodeURIComponent(item.path)}`;
+            
+            const formattedName = formatFilename(item.name, item.camera);
+            const fileSizeFormatted = formatFileSize(item.bytes);
+            
+            const cacheBuster = `&t=${Date.now()}`;
+            const finalPreviewUrl = item.kind === 'Image' ? `${previewUrl}${cacheBuster}` : previewUrl;
+            
+            html += `<div class="item" onclick="window.open('${openUrl}', '_blank')">
+                <div class="preview">`;
+            
+            if (item.kind === 'Image') {
+                html += `<img src="${finalPreviewUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect width=\'100\' height=\'100\' fill=\'%23333\'/%3E%3Ctext x=\'50\' y=\'55\' text-anchor=\'middle\' fill=\'%23666\'%3ENo image%3C/text%3E%3C/svg%3E'" loading="lazy">`;
+            } else {
+                html += `<div class="video-placeholder">🎬</div>`;
+            }
+            
+            html += `</div>
+                <div class="info">
+                    <div class="name-line1">
+                        <span class="timestamp-part">📄 ${escapeHtml(formattedName.part1)}</span>
+                        <span onclick="event.stopPropagation(); copyToSearch('${escapeHtml(formattedName.part1)}')">📋 Copy</span>
+                    </div>`;
+            
+            if (formattedName.part2) {
+                html += `<div class="name-line2">${escapeHtml(formattedName.part2)}</div>`;
+            }
+            
+            html += `<div class="meta">
+                        <span class="badge-${item.kind}">${item.kind}</span>
+                        <span>🎥 ${escapeHtml(item.camera)}</span>
+                        <span>💾 ${fileSizeFormatted}</span>
+                    </div>
+                    <div class="meta">📅 ${formatDate24h(item.modified)}</div>
+                </div>
+            </div>`;
+        });
+        
+        html += '</div>';
+        document.getElementById('gridContent').innerHTML = html;
+    }
+    
+    async function goToGrid(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        await load();
+        window.scrollTo(0, 0);
+    }
+    
+    // ========== TABLE VIEW ==========
+    function displayTable(data) {
+        const items = data.items || [];
+        
+        if (!items.length) { 
+            document.getElementById('tableContent').innerHTML = '<div class="card">No results found</div>';
+            document.getElementById('stats').innerHTML = `Found 0 items`;
+            renderPagination('tableTopPagination', data.page, totalPages, 'goToTable');
+            renderPagination('tableBottomPagination', data.page, totalPages, 'goToTable');
+            return; 
+        }
+        
+        document.getElementById('stats').innerHTML = `📊 Found ${data.total_filtered} items (showing ${items.length}) | Camera: ${data.camera_filter || 'All'} | Type: ${data.kind_filter || 'All'}`;
+        
+        renderPagination('tableTopPagination', data.page, totalPages, 'goToTable');
+        renderPagination('tableBottomPagination', data.page, totalPages, 'goToTable');
+        
+        const rows = items.map(item => {
+            const openUrl = `/details.html?path=${encodeURIComponent(item.path)}`;
+            const isImage = item.kind === 'Image';
+            
+            let part1 = '';
+            let part2 = '';
+            let copyText = '';
+            
+            if (isImage) {
+                const match = item.name.match(/^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[A-Za-z0-9]+)_(.+)$/);
+                if (match) {
+                    part1 = match[1];
+                    part2 = match[2];
+                    copyText = match[1];
+                } else {
+                    part1 = item.name;
+                    part2 = '';
+                    copyText = item.name;
+                }
+            } else {
+                const match = item.name.match(/^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[A-Za-z0-9]+)\.(.+)$/);
+                if (match) {
+                    part1 = match[1];
+                    part2 = `${item.camera}.${match[2]}`;
+                    copyText = match[1];
+                } else {
+                    part1 = item.name;
+                    part2 = '';
+                    copyText = item.name;
+                }
+            }
+            
+            return `
+            <tr>
+                <td class="thumb-cell">
+                    <div class="thumb-card" onclick="window.open('${openUrl}', '_blank')">
+                        ${renderThumbTable(item)}
+                    </div>
+                </td>
+                <td class="filename-cell">
+                    <span class="fname-part1">
+                        ${escapeHtml(part1)}
+                        <button class="copy-btn" onclick="event.stopPropagation(); copyToSearch('${escapeHtml(copyText)}')">📋 Copy</button>
+                    </span>
+                    ${part2 ? `<span class="fname-part2">${escapeHtml(part2)}</span>` : ''}
+                </td>
+                <td><span class="badge-${item.kind}">${item.kind}</span></td>
+                <td>${escapeHtml(formatDate24h(item.modified))}</td>
+                <td>${escapeHtml(item.size || '')}</td>
+            </tr>
+        `}).join('');
+        
+        const html = `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="thumb-cell">Preview</th>
+                            <th>Filename</th>
+                            <th>Type</th>
+                            <th>Modified</th>
+                            <th>Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+        
+        document.getElementById('tableContent').innerHTML = html;
+        
+        // Hydrate preview images after render
+        setTimeout(hydratePreviewImages, 100);
+    }
+    
+    function renderThumbTable(item) {
+        const kind = (item.kind || '').toLowerCase();
+        const cameraLabel = escapeHtml(item.camera || 'Unknown');
+        const preview = kind === 'image'
+            ? `<img class="thumb preview-thumb" data-path="${escapeHtml(item.path || '')}" src="" alt="${escapeHtml(item.name || '')}" loading="lazy" decoding="async" />`
+            : `<div class="thumb-icon" aria-label="Video preview">▶</div>`;
+        return `<figure class="thumb-card" style="margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;">${preview}<figcaption class="thumb-caption">${cameraLabel}</figcaption></figure>`;
+    }
+    
+    async function goToTable(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        await load();
+        window.scrollTo(0, 0);
+    }
+    
+    // ========== COMMON FUNCTIONS ==========
+    function formatFilename(filename, camera) {
+        const match = filename.match(/^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[A-Za-z0-9]+)_(.+)$/);
+        if (match) {
+            return { part1: match[1], part2: match[2] };
+        }
+        const timestampMatch = filename.match(/^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})/);
+        if (timestampMatch && camera) {
+            return {
+                part1: `${timestampMatch[1]}_${camera}`,
+                part2: filename.substring(timestampMatch[1].length + 1)
+            };
+        }
+        return { part1: filename, part2: '' };
+    }
+    
+    function copyToSearch(text) {
+        document.getElementById('query').value = text;
+        search();
+    }
+    
+    function formatDate24h(isoString) {
+        if (!isoString) return 'Unknown date';
+        try {
+            const date = new Date(isoString);
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`;
+        } catch(e) {
+            return isoString;
+        }
+    }
+    
+    function formatFileSize(bytes) {
+        if (!bytes || bytes === 0) return '0.0 MB';
+        const mb = bytes / (1024 * 1024);
+        if (mb < 0.1) return '< 0.1 MB';
+        return `${mb.toFixed(1)} MB`;
+    }
+    
+    function escapeHtml(str) { 
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) { 
+            return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'); 
+        }); 
+    }
+    
+    // Hydrate preview images for table view
+    async function hydratePreviewImages() {
+        const images = document.querySelectorAll('.style-table .preview-thumb');
+        for (const image of images) {
+            const path = image.getAttribute('data-path');
+            if (!path) continue;
+            try {
+                const response = await fetch(`/api/preview?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    image.src = objectUrl;
+                    image.dataset.objectUrl = objectUrl;
+                }
+            } catch (error) {
+                // ignore
+            }
+        }
+    }
+    
+    // Event listeners
+    document.getElementById('query').addEventListener('keypress', e => { 
+        if(e.key === 'Enter') search(); 
+    });
+    
+    // Initial load
+    setStyle('grid');
+    search();
+</script>
+</body>
+</html>
