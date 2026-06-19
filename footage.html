@@ -2,8 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>📹 CCTV Footage Viewer
-</title>
+    <title>CCTV Footage Viewer</title>
     <style>
         body { background: #07111f; color: white; font-family: Arial; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
@@ -43,17 +42,18 @@
         }
         .style-grid .item:hover { transform: scale(1.02); }
         .style-grid .preview { 
-            height: 180px; 
             background: #0a0f1a; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
             overflow: hidden;
+            position: relative;
+            min-height: 180px;
         }
         .style-grid .preview img { 
             width: 100%; 
             height: 100%; 
-            object-fit: cover; 
+            object-fit: contain; 
             background: #0a0f1a;
         }
         .style-grid .info { padding: 10px; }
@@ -73,8 +73,70 @@
             justify-content: center;
             background: linear-gradient(135deg, #1e293b, #0f172a);
             font-size: 48px;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
         
+        /* ===== VIDEO WRAPPER - DYNAMIC SIZING ===== */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #000;
+            object-fit: contain;
+            max-height: 100%;
+        }
+
+        /* Grid video preview */
+        .style-grid .preview.video-preview {
+            min-height: 180px;
+            background: #0a0f1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            padding: 0;
+        }
+
+        .style-grid .preview.video-preview .video-wrapper {
+            min-height: 180px;
+            width: 100%;
+        }
+
+        .style-grid .preview.video-preview video {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        }
+
+        .style-grid .preview.video-preview .video-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            font-size: 48px;
+            pointer-events: none;
+        }
+
         /* ===== STYLE 2: TABLE VIEW ===== */
         .style-table .table-wrap { overflow-x: auto; }
         .style-table table {
@@ -180,6 +242,39 @@
             margin-top: 2px;
         }
         
+        /* Table view video thumbnails */
+        .style-table .thumb-video {
+            width: 65px;
+            height: 50px;
+            display: grid;
+            place-items: center;
+            border-radius: 6px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.18));
+            color: #e0f2fe;
+            font-size: 1rem;
+            font-weight: 700;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .style-table .thumb-video video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .style-table .thumb-video .play-icon {
+            position: relative;
+            z-index: 2;
+            font-size: 20px;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        
         /* ===== COMMON PAGINATION ===== */
         .pagination {
             display: flex;
@@ -243,8 +338,8 @@
 
 <div class="container">
     <div class="card">
-        <h1><a href="/" class="title-link">📹 CCTV Footage Viewer</a></h1>
-        <p>Powerful search syntax to find exactly what you're looking for. </p?
+        <h1><a href="/" class="title-link">CCTV Footage Viewer</a></h1>
+        <p>Powerful search syntax to find exactly what you're looking for.</p>
     </div>
     <div class="card">
         <div class="button-group">
@@ -434,12 +529,22 @@
             const finalPreviewUrl = item.kind === 'Image' ? `${previewUrl}${cacheBuster}` : previewUrl;
             
             html += `<div class="item" onclick="window.open('${openUrl}', '_blank')">
-                <div class="preview">`;
+                <div class="preview ${item.kind === 'Video' ? 'video-preview' : ''}">`;
             
             if (item.kind === 'Image') {
                 html += `<img src="${finalPreviewUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect width=\'100\' height=\'100\' fill=\'%23333\'/%3E%3Ctext x=\'50\' y=\'55\' text-anchor=\'middle\' fill=\'%23666\'%3ENo image%3C/text%3E%3C/svg%3E'" loading="lazy">`;
             } else {
-                html += `<div class="video-placeholder">🎬</div>`;
+                // For video, use video wrapper with dynamic sizing
+                const videoPath = item.path;
+                const videoUrl = `/api/video?path=${encodeURIComponent(videoPath)}`;
+                html += `
+                    <div class="video-wrapper" id="video-wrapper-${item.id || Math.random()}">
+                        <video id="video-${item.id || Math.random()}" muted playsinline>
+                            <source src="${videoUrl}" type="video/mp4">
+                        </video>
+                        <div class="video-placeholder">🎬</div>
+                    </div>
+                `;
             }
             
             html += `</div>
@@ -465,6 +570,62 @@
         
         html += '</div>';
         document.getElementById('gridContent').innerHTML = html;
+        
+        // Adjust video wrapper heights after render
+        setTimeout(adjustVideoWrappers, 100);
+    }
+    
+    // ========== ADJUST VIDEO WRAPPER HEIGHTS ==========
+    function adjustVideoWrappers() {
+        document.querySelectorAll('.video-wrapper video').forEach(function(video) {
+            const wrapper = video.parentElement;
+            if (!wrapper) return;
+            
+            // When metadata loads, adjust the wrapper height
+            video.addEventListener('loadedmetadata', function onMetadata() {
+                if (video.videoWidth && video.videoHeight) {
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    const wrapperWidth = wrapper.clientWidth;
+                    
+                    // Calculate height based on aspect ratio
+                    let newHeight = wrapperWidth / aspectRatio;
+                    
+                    // Cap at reasonable max/min
+                    const maxHeight = 500;
+                    const minHeight = 180;
+                    newHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
+                    
+                    wrapper.style.height = newHeight + 'px';
+                    wrapper.style.minHeight = newHeight + 'px';
+                    
+                    // Hide placeholder
+                    const placeholder = wrapper.querySelector('.video-placeholder');
+                    if (placeholder) {
+                        placeholder.style.display = 'none';
+                    }
+                    
+                    console.log(`Video aspect ratio: ${aspectRatio.toFixed(2)}, Height: ${newHeight}px`);
+                }
+                video.removeEventListener('loadedmetadata', onMetadata);
+            });
+            
+            // If metadata already loaded, adjust immediately
+            if (video.videoWidth && video.videoHeight) {
+                const aspectRatio = video.videoWidth / video.videoHeight;
+                const wrapperWidth = wrapper.clientWidth;
+                let newHeight = wrapperWidth / aspectRatio;
+                const maxHeight = 500;
+                const minHeight = 180;
+                newHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
+                wrapper.style.height = newHeight + 'px';
+                wrapper.style.minHeight = newHeight + 'px';
+                
+                const placeholder = wrapper.querySelector('.video-placeholder');
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+            }
+        });
     }
     
     async function goToGrid(page) {
@@ -569,10 +730,21 @@
     function renderThumbTable(item) {
         const kind = (item.kind || '').toLowerCase();
         const cameraLabel = escapeHtml(item.camera || 'Unknown');
-        const preview = kind === 'image'
-            ? `<img class="thumb preview-thumb" data-path="${escapeHtml(item.path || '')}" src="" alt="${escapeHtml(item.name || '')}" loading="lazy" decoding="async" />`
-            : `<div class="thumb-icon" aria-label="Video preview">▶</div>`;
-        return `<figure class="thumb-card" style="margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;">${preview}<figcaption class="thumb-caption">${cameraLabel}</figcaption></figure>`;
+        
+        if (kind === 'image') {
+            return `<figure class="thumb-card" style="margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <img class="thumb preview-thumb" data-path="${escapeHtml(item.path || '')}" src="" alt="${escapeHtml(item.name || '')}" loading="lazy" decoding="async" />
+                <figcaption class="thumb-caption">${cameraLabel}</figcaption>
+            </figure>`;
+        } else {
+            // Video thumbnail - use a video element or icon
+            return `<figure class="thumb-card" style="margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <div class="thumb-video">
+                    <span class="play-icon">▶</span>
+                </div>
+                <figcaption class="thumb-caption">${cameraLabel}</figcaption>
+            </figure>`;
+        }
     }
     
     async function goToTable(page) {
