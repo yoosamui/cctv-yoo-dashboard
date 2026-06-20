@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCTV Dashboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #07111f;
+      color: #eff6ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #10253a 0%, #07111f 45%, #040b13 100%);
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header-badge {
+      display: inline-block;
+      padding: 6px 18px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.5rem, 6vw, 3.5rem);
+      font-weight: 700;
+    }
+
+    h1 .highlight {
+      color: #60a5fa;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+
+    /* ===== SYSTEM INFO CARD ===== */
+    .system-info {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 18px;
+      padding: 28px 32px;
+      margin-bottom: 40px;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.35);
+      text-align: center;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .system-info .title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #bae6fd;
+      margin-bottom: 10px;
+    }
+
+    .system-info .description {
+      color: #dbeafe;
+      line-height: 1.8;
+      font-size: 1rem;
+    }
+
+    .system-info .features {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .system-info .feature-item {
+      background: rgba(30, 41, 59, 0.6);
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      font-size: 0.85rem;
+      color: #cbd5e1;
+    }
+
+    /* ===== BIG BUTTONS ===== */
+    .nav-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 200px;
+      height: 160px;
+      padding: 20px;
+      border-radius: 20px;
+      text-decoration: none;
+      color: #eff6ff;
+      font-weight: 600;
+      font-size: 1.3rem;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.88);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-btn .icon {
+      font-size: 3rem;
+      margin-bottom: 10px;
+    }
+
+    .nav-btn .label {
+      font-size: 1.1rem;
+    }
+
+    .nav-btn .sub-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-6px) scale(1.02);
+      border-color: rgba(56, 189, 248, 0.5);
+      box-shadow: 0 12px 40px rgba(56, 189, 248, 0.15);
+    }
+
+    .nav-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Button specific colors */
+    .nav-btn.footage:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
+    }
+
+    .nav-btn.infos:hover {
+      border-color: #8b5cf6;
+      box-shadow: 0 12px 40px rgba(139, 92, 246, 0.2);
+    }
+
+    .nav-btn.live:hover {
+      border-color: #ef4444;
+      box-shadow: 0 12px 40px rgba(239, 68, 68, 0.2);
+    }
+
+    .nav-btn.live .pulse-ring {
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.05);
+      animation: pulse-ring 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% { transform: scale(0.8); opacity: 0.5; }
+      50% { transform: scale(1.2); opacity: 0; }
+    }
+
+    /* ===== STATUS BAR ===== */
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      padding: 14px 24px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      margin-top: 10px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+
+    .status-item .dot-green {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      display: inline-block;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .status-item .dot-red {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      display: inline-block;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-item strong {
+      color: #e0f2fe;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+      color: #475569;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    footer code {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 6px;
+      padding: 2px 8px;
+      color: #94a3b8;
+      font-size: 0.8rem;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .nav-btn {
+        width: 160px;
+        height: 130px;
+        padding: 16px;
+        font-size: 1.1rem;
+      }
+
+      .nav-btn .icon {
+        font-size: 2.2rem;
+        margin-bottom: 6px;
+      }
+
+      .nav-buttons {
+        gap: 16px;
+      }
+
+      .system-info {
+        padding: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .nav-btn {
+        width: 100%;
+        max-width: 280px;
+        height: 100px;
+        flex-direction: row;
+        gap: 16px;
+        padding: 16px 24px;
+      }
+
+      .nav-btn .icon {
+        font-size: 2rem;
+        margin-bottom: 0;
+      }
+
+      .nav-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .status-bar {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <!-- ===== HEADER ===== -->
+    <header>
+      <div class="header-badge">Raspberry Pi 5 · CCTV System v3.26.1</div>
+      <h1>📹 <span class="highlight">CCTV</span> Dashboard</h1>
+      <p class="subtitle">Centralized surveillance management for all cameras</p>
+    </header>
+
+    <!-- ===== SYSTEM INFO ===== -->
+    <div class="system-info">
+      <div class="title">📡 System Overview</div>
+      <div class="description">
+        The CCTV system monitors <strong>6 cameras</strong> continuously. Recordings are stored locally and indexed for quick retrieval. 
+      </div>
+    </div>
+
+    <!-- ===== BIG NAVIGATION BUTTONS ===== -->
+    <div class="nav-buttons">
+      <a href="/footage" class="nav-btn footage">
+        <span class="icon">📹</span>
+        <span class="label">Footage</span>
+        <span class="sub-label">Browse recordings</span>
+      </a>
+
+      <a href="/infos" class="nav-btn infos">
+        <span class="icon">ℹ️</span>
+        <span class="label">Infos</span>
+        <span class="sub-label">System status</span>
+      </a>
+
+      <a href="http://192.168.1.19:8080/" target="_blank" class="nav-btn live">
+        <span class="pulse-ring"></span>
+        <span class="icon">🟢</span>
+        <span class="label">Live</span>
+        <span class="sub-label">View live feeds</span>
+      </a>
+    </div>
+
+    <!-- ===== STATUS BAR ===== -->
+    <div class="status-bar">
+      <span class="status-item">
+        <span class="dot-green"></span>
+        <strong>6</strong> Cameras Online
+      </span>
+      <span class="status-item">
+        <span class="dot-green"></span>
+        <strong>System</strong> Running
+      </span>
+      <span class="status-item">
+        <span class="dot-green"></span>
+        <strong>API</strong> Connected
+      </span>
+      <span class="status-item">
+        📊 <strong id="fileCount">Loading...</strong> Files Indexed
+      </span>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <footer>
+      <strong>📹 CCTV System</strong> · Project: <code>cctv-yoosamui</code> · v3.26.1
+    </footer>
+
+    <!-- ===== SCRIPT ===== -->
+    <script>
+      // Fetch file count from API
+      async function getFileCount() {
+        try {
+          const response = await fetch('/api/footage?query=today');
+          const data = await response.json();
+          document.getElementById('fileCount').textContent = data.total_files || '0';
+        } catch (error) {
+          document.getElementById('fileCount').textContent = '⚠️ API Offline';
+        }
+      }
+
+      getFileCount();
+      // Update every 60 seconds
+      setInterval(getFileCount, 60000);
+    </script>
+
+  </main>
+</body>
+
+</html>
