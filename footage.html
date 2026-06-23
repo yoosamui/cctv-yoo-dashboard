@@ -344,7 +344,7 @@
     <div class="card">
         <div class="button-group">
             <input type="text" id="query" placeholder="Search by camera, date (YYYY-MM-DD), time (HH:MM), or 'today'..." value="today">
-            <select id="kind">
+            <select id="kind" onchange="search()">
                 <option value="" selected>All</option>
                 <option value="Image">Images only</option>
                 <option value="Video">Videos only</option>
