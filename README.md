@@ -17,7 +17,7 @@ cctv-dashboard/
 - Serve it through Nginx as a reverse proxy on port 8880.
 - Keep the detector script and web dashboard in the same project tree for simple management.
 
-**http://<RPI5-IP>:8881/**
+**http://RPI5-IP:8881/**
 
 <img width="751" height="548" alt="image" src="https://github.com/user-attachments/assets/2b4f7ac3-c39f-47a6-ad5a-7316ad27954d" />
 
