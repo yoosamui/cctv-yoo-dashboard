@@ -15,7 +15,7 @@ import urllib.parse
 
 VERSION = "1.2.0"
 
-STORAGE_ROOT = Path("/media/share/cameras/cctv-storage")
+STORAGE_ROOT = Path("/media/share/cameras/cctv-storage/")
 HOST = "0.0.0.0"
 PORT = 8881
 MAX_ITEMS_PER_PAGE = 12
@@ -121,7 +121,7 @@ def latest_date_with_hour(camera_name, hour):
                 latest = d
     return latest
 
-def lookback_window(camera_name, target_dt):
+def lookback_window(camera_name, target_dt, kind_filter=None):
     """Window for a time query anchored at target_dt.
 
     Upper bound = the first clip at/after target_dt on the same day (the
@@ -131,20 +131,28 @@ def lookback_window(camera_name, target_dt):
     """
     upper = None
     for f in ALL_FILES:
-        ts = f["timestamp"]
+        ts = f["timestamp"]  # clip timestamp
         if not ts:
             continue
         if camera_name and f["camera"].lower() != camera_name.lower():
             continue
-        if ts >= target_dt and ts.date() == target_dt.date():
-            if upper is None or ts < upper:
-                upper = ts
+        # Apply kind filter when finding the upper bound
+        if kind_filter and f["kind"].lower() != kind_filter.lower():
+            continue
+        
+        # For images, use the capture timestamp for comparison
+        compare_ts = f["capture"] if f["kind"] == "Image" and f["capture"] else ts
+        
+        if compare_ts >= target_dt and compare_ts.date() == target_dt.date():
+            if upper is None or compare_ts < upper:
+                upper = compare_ts
+    
     if upper is None:
         upper = target_dt
     lower = target_dt - timedelta(hours=LOOKBACK_HOURS)
     return lower, upper
 
-def parse_query(query: str):
+def parse_query(query: str, kind_filter=None):
     if not query:
         return None, None, None, None
     
@@ -185,7 +193,7 @@ def parse_query(query: str):
                     minute = int(time_match.group(2))
                     if 0 <= hour <= 23 and 0 <= minute <= 59:
                         target_dt = datetime.strptime(f"{date_str} {hour:02d}:{minute:02d}:00", "%Y-%m-%d %H:%M:%S")
-                        lower, upper = lookback_window(camera_name, target_dt)
+                        lower, upper = lookback_window(camera_name, target_dt, kind_filter)
                         return camera_name, lower, upper, None
 
     # Check if it's Camera_Date format (2 parts)
@@ -214,7 +222,7 @@ def parse_query(query: str):
                 minute = int(time_match.group(2))
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
                     target_dt = datetime.strptime(f"{date_str} {hour:02d}:{minute:02d}:00", "%Y-%m-%d %H:%M:%S")
-                    lower, upper = lookback_window(None, target_dt)
+                    lower, upper = lookback_window(None, target_dt, kind_filter)
                     return None, lower, upper, None
 
     # Check if it's Camera_Time format (2 parts, no date) -> use latest day with that hour
@@ -232,7 +240,7 @@ def parse_query(query: str):
                     target_date = latest_date_with_hour(camera_name, hour)
                     if target_date:
                         target_dt = datetime.combine(target_date, datetime.min.time()).replace(hour=hour, minute=minute)
-                        lower, upper = lookback_window(camera_name, target_dt)
+                        lower, upper = lookback_window(camera_name, target_dt, kind_filter)
                         return camera_name, lower, upper, None
 
     # ============================================================
@@ -270,7 +278,7 @@ def parse_query(query: str):
         minute = int(dt_match.group(3))
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             target_dt = datetime.strptime(f"{date_str} {hour:02d}:{minute:02d}:00", "%Y-%m-%d %H:%M:%S")
-            lower, upper = lookback_window(camera_name, target_dt)
+            lower, upper = lookback_window(camera_name, target_dt, kind_filter)
             return camera_name, lower, upper, None
     
     # Check for "YYYY-MM-DD"
@@ -291,14 +299,25 @@ def parse_query(query: str):
             target_date = latest_date_with_hour(camera_name, hour)
             if target_date:
                 target_dt = datetime.combine(target_date, datetime.min.time()).replace(hour=hour, minute=minute)
-                lower, upper = lookback_window(camera_name, target_dt)
+                lower, upper = lookback_window(camera_name, target_dt, kind_filter)
                 return camera_name, lower, upper, None
 
     return camera_name, None, None, remaining
 
 def filter_files(files, camera_name, filter1, filter2, text_search, kind_filter=None, order="desc"):
     result = files
-    ts_key = lambda x: (x["timestamp"] or datetime.min, x["capture"] or datetime.min)
+    
+    # Helper function to get the appropriate timestamp for each file
+    def get_timestamp(f):
+        """Return the capture timestamp for images, clip timestamp for videos."""
+        if f["kind"] == "Image" and f["capture"]:
+            return f["capture"]
+        return f["timestamp"]
+    
+    # Sort key using the appropriate timestamp
+    def sort_key(f):
+        ts = get_timestamp(f)
+        return ts or datetime.min
 
     if camera_name:
         result = [f for f in result if f["camera"].lower() == camera_name.lower()]
@@ -307,18 +326,17 @@ def filter_files(files, camera_name, filter1, filter2, text_search, kind_filter=
         result = [f for f in result if f["kind"].lower() == kind_filter.lower()]
 
     if filter1 and filter2 and isinstance(filter1, datetime):
-        # filter1..filter2 is the time window built by parse_query (the matching hour
-        # for time queries, or the whole day for date/today queries). `order` controls
-        # direction: desc (default) = newest-first, asc = oldest-first.
-        result = [f for f in result if f["timestamp"] and filter1 <= f["timestamp"] <= filter2]
-        result.sort(key=ts_key, reverse=(order != "asc"))
+        # filter1..filter2 is the time window built by parse_query
+        # Use the appropriate timestamp for filtering
+        result = [f for f in result if get_timestamp(f) and filter1 <= get_timestamp(f) <= filter2]
+        result.sort(key=sort_key, reverse=(order != "asc"))
         return result
 
     if text_search:
         needle = text_search.lower()
         result = [f for f in result if needle in f["name"].lower()]
 
-    result.sort(key=ts_key, reverse=(order != "asc"))
+    result.sort(key=sort_key, reverse=(order != "asc"))
     return result
 
 def serve_html_file(self, filename, content_type="text/html"):
@@ -434,7 +452,7 @@ class Handler(BaseHTTPRequestHandler):
             if order not in ("asc", "desc"):
                 order = "desc"
 
-            camera_name, filter1, filter2, text_search = parse_query(query)
+            camera_name, filter1, filter2, text_search = parse_query(query, kind if kind else None)
             filtered = filter_files(ALL_FILES, camera_name, filter1, filter2, text_search, kind if kind else None, order)
             
             start = (page - 1) * MAX_ITEMS_PER_PAGE
@@ -444,12 +462,14 @@ class Handler(BaseHTTPRequestHandler):
             
             items = []
             for f in paginated:
+                # Use capture timestamp for images, clip timestamp for videos
+                modified_time = f["capture"] if f["kind"] == "Image" and f["capture"] else f["timestamp"]
                 items.append({
                     "name": f["name"],
                     "path": f["path"],
                     "camera": f["camera"],
                     "kind": f["kind"],
-                    "modified": f["timestamp"].isoformat() if f["timestamp"] else "",
+                    "modified": modified_time.isoformat() if modified_time else "",
                     "size": f"{f['size_bytes'] / 1024 / 1024:.1f} MB",
                     "bytes": f["size_bytes"],
                 })
